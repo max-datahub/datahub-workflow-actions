@@ -10,7 +10,7 @@ from typing import ClassVar, List
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.schema_classes import DomainPropertiesClass, OwnershipClass
+from datahub.metadata.schema_classes import DomainPropertiesClass, OwnerClass, OwnershipClass
 from pydantic import model_validator
 
 from datahub_workflow_actions.events import WorkflowEvent
@@ -23,6 +23,15 @@ UPDATE_DESCRIPTION = "mutation($input: DescriptionUpdateInput!) { updateDescript
 BATCH_ADD_OWNERS = "mutation($input: BatchAddOwnersInput!) { batchAddOwners(input: $input) }"
 BATCH_REMOVE_OWNERS = "mutation($input: BatchRemoveOwnersInput!) { batchRemoveOwners(input: $input) }"
 MOVE_DOMAIN = "mutation($input: MoveDomainInput!) { moveDomain(input: $input) }"
+
+
+def _type_urn(owner: OwnerClass) -> str:
+    """The ownership type GMS attributes to an owner.
+
+    Owners written by ingestion or the SDK as `type=BUSINESS_OWNER` carry no `typeUrn`; GMS maps the
+    legacy enum to the matching `__system__` type (OwnerServiceUtils.isOwnerEqual), so the diff must too.
+    """
+    return owner.typeUrn or f"urn:li:ownershipType:__system__{str(owner.type).lower()}"
 
 
 class UpdateDomain(Primitive):
@@ -64,9 +73,11 @@ class UpdateDomain(Primitive):
             logger.info("Updated description of %s (request %s)", entity, event.request_urn)
 
         if self.owners:
-            wanted = {o for o in self.owners if owner_input(o, self.ownership_type)}
+            for o in self.owners:
+                owner_input(o, self.ownership_type)  # validates the URN prefix
+            wanted = set(self.owners)
             current = graph.get_aspect(entity, OwnershipClass)
-            have = {o.owner for o in (current.owners if current else []) if o.typeUrn == self.ownership_type}
+            have = {o.owner for o in (current.owners if current else []) if _type_urn(o) == self.ownership_type}
             remove, add = sorted(have - wanted), sorted(wanted - have)
             if remove:
                 gql(graph, BATCH_REMOVE_OWNERS, {"input": {"ownerUrns": remove, "ownershipTypeUrn": self.ownership_type, "resources": resources}})

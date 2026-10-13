@@ -109,6 +109,17 @@ def test_permanent_error_stops_remaining_steps_and_is_not_raised() -> None:
     assert sample.RUNS == []
 
 
+def test_permanent_error_in_one_rule_does_not_block_other_matching_rules() -> None:
+    # The shipped recipe relies on this: the pending-marker cleanup rule must run even when the
+    # certification rule fails permanently (e.g. the structured property does not exist yet).
+    r = router({"workflows": {"dataset-certification": [
+        {"phase": "COMPLETED", "do": [{ECHO: {"fail": "permanent"}}, {ECHO: {"value": "same-rule-never"}}]},
+        {"phase": "COMPLETED", "when": "ANY", "do": [{ECHO: {"value": "cleanup"}}]},
+    ]}})
+    r.act(envelope())
+    assert [v for v, _, _ in sample.RUNS] == ["cleanup"]
+
+
 def test_invalid_resolved_values_are_permanent() -> None:
     # update_domain with every field empty at run time: valid config, request carried nothing
     r = router({"workflows": {"domain-edit": [{"phase": "COMPLETED", "do": [

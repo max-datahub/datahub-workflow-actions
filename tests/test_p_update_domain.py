@@ -55,6 +55,17 @@ def test_owners_replace_within_ownership_type_only() -> None:
     ]
 
 
+def test_legacy_typed_owner_without_type_urn_is_replaced() -> None:
+    # Owners written by ingestion/SDK as type=BUSINESS_OWNER carry no typeUrn; GMS treats them as
+    # the __system__business_owner type, so "replace the business owners" must remove them too.
+    graph = FakeGraph()
+    graph.put(DOMAIN, DomainPropertiesClass(name="Payments", parentDomain=PARENT))
+    graph.put(DOMAIN, OwnershipClass(owners=[OwnerClass(owner=A, type=OwnershipTypeClass.BUSINESS_OWNER)]))
+    UpdateDomain(entity=DOMAIN, owners=[B]).run(graph, EV)
+    assert graph.operations() == ["batchRemoveOwners", "batchAddOwners"]
+    assert graph.calls[0][1]["input"]["ownerUrns"] == [A]
+
+
 def test_owner_replace_converges_on_second_run() -> None:
     graph = graph_with_domain(owners=(B, C))  # state after the first delivery was applied
     UpdateDomain(entity=DOMAIN, owners=[B, C]).run(graph, EV)

@@ -31,6 +31,8 @@ Flow: Kafka `PlatformEvent_v1` → recipe filter (workflow events only) → `rou
 - **`PermanentError` vs propagate.** Raise `PermanentError` for anything a retry cannot fix (bad
   form value, wrong entity type, collision, GraphQL-level rejection). Let `OperationalError` and
   other exceptions propagate so the framework retries. `primitive.gql` already does the split.
+  A permanent failure stops the **current rule's** remaining steps only; the other rules matching
+  the same event still run (the pending-marker cleanup must not depend on the certification rule).
 - **Declare privileges.** `required_privileges` uses DataHub privilege display names. Override
   `privileges()` when they depend on which params are bound (see `UpdateDomain`). The router prints
   the union at startup; operators build their policy from it.

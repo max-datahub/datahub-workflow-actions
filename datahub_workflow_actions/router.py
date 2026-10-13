@@ -5,9 +5,9 @@ workflow id and phase, and every step of a matching rule is bound and run in ord
 validated at create() so a bad recipe never starts consuming, and the startup log prints the
 privileges the service account needs.
 
-Error contract per step: PermanentError or invalid bound values -> log, stop this event's remaining
-steps, return (the framework acks). Anything else propagates (the framework retries, then writes
-the envelope to the failed-events file).
+Error contract per step: PermanentError or invalid bound values -> log, stop the current rule's
+remaining steps, continue with the next matching rule (the framework acks the event). Anything else
+propagates (the framework retries, then writes the envelope to the failed-events file).
 """
 
 from collections import defaultdict
@@ -148,17 +148,19 @@ class WorkflowRouter(Action):
         for rule in self.rules.get(event.workflow_id, []):
             if not _matches(rule, event):
                 continue
+            # A permanent failure ends this rule's remaining steps only; other rules for the
+            # same event are independent declarations and still run (e.g. marker cleanup).
             for step in rule.steps:
                 try:
                     primitive = step.cls.model_validate(resolve(step.params, event))
                 except ValidationError as e:
                     logger.error("Request %s (%s/%s) %s: invalid values, not retried: %s", event.request_urn, event.workflow_id, event.phase, step.name, e)
-                    return
+                    break
                 try:
                     primitive.run(self.graph, event)
                 except PermanentError as e:
                     logger.error("Request %s (%s/%s) %s: %s; not retried", event.request_urn, event.workflow_id, event.phase, step.name, e)
-                    return
+                    break
 
     def close(self) -> None:
         pass
