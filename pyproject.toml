@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datahub-workflow-actions"
+version = "0.1.0"
+description = "DataHub Action that applies catalog side effects when Action Workflow requests complete"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = ["acryl-datahub-actions"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools]
+packages = ["datahub_workflow_actions"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
