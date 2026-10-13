@@ -1,0 +1,89 @@
+{
+  "urn": "urn:li:actionWorkflow:dataset-certification",
+  "name": "Dataset Certification",
+  "description": "Certify a table. Requires every owner, then any owner of the table's domain, and, for PII-tagged tables, an Admin. A single rejection ends the request. A subscribed DataHub Action marks the request pending on submission and applies the CERTIFIED tag and expiry on approval.",
+  "category": "CUSTOM",
+  "customCategory": "GOVERNANCE",
+  "trigger": {
+    "type": "FORM_SUBMITTED",
+    "form": {
+      "entityTypes": ["DATASET"],
+      "entrypoints": [
+        {
+          "type": "ENTITY_PROFILE",
+          "label": "Request Certification",
+          "filter": {
+            "operator": "AND",
+            "filters": [
+              { "field": "platform", "values": ["urn:li:dataPlatform:databricks"], "condition": "EQUAL" },
+              { "field": "subTypes", "values": ["Table"], "condition": "EQUAL" },
+              { "field": "tags", "values": ["urn:li:tag:CERTIFIED"], "condition": "CONTAIN", "negated": true },
+              { "field": "tags", "values": ["urn:li:tag:certification-pending"], "condition": "CONTAIN", "negated": true }
+            ]
+          }
+        }
+      ],
+      "excludedDefaultFields": ["EXPIRATION_DATE"],
+      "fields": [
+        {
+          "id": "justification",
+          "name": "Justification",
+          "description": "Why is this table ready to be certified? Minimum 50 characters.",
+          "valueType": "RICH_TEXT",
+          "cardinality": "SINGLE",
+          "required": true,
+          "validation": { "pattern": "[\\s\\S]{50,}", "errorMessage": "Please provide at least 50 characters of justification." }
+        },
+        {
+          "id": "certification_expiration",
+          "name": "Certification expires on",
+          "valueType": "DATE",
+          "cardinality": "SINGLE",
+          "required": true
+        },
+        {
+          "id": "co_signer_steward",
+          "name": "Co-signer steward",
+          "description": "An owner of this table's domain who co-signs the request.",
+          "valueType": "URN",
+          "allowedEntityTypes": ["CORP_USER"],
+          "cardinality": "SINGLE",
+          "required": true,
+          "dynamicSource": { "resolvers": [{ "resolver": "DOMAIN_OWNERS_OF", "source": "launching" }] }
+        },
+        {
+          "id": "sla_tier",
+          "name": "Support tier",
+          "valueType": "STRING",
+          "cardinality": "SINGLE",
+          "required": false,
+          "allowedValues": [{ "stringValue": "GOLD" }, { "stringValue": "SILVER" }, { "stringValue": "BRONZE" }]
+        }
+      ]
+    }
+  },
+  "steps": [
+    {
+      "id": "owner-approval",
+      "type": "APPROVAL",
+      "description": "Every owner of the table must approve.",
+      "actors": { "dynamicSource": { "resolvers": [{ "resolver": "OWNERS_OF", "source": "launching" }] } },
+      "quorum": { "allOf": true }
+    },
+    {
+      "id": "domain-steward-approval",
+      "type": "APPROVAL",
+      "description": "Any owner of the table's domain can approve.",
+      "actors": { "dynamicSource": { "resolvers": [{ "resolver": "DOMAIN_OWNERS_OF", "source": "launching" }] } },
+      "quorum": { "anyOf": true }
+    },
+    {
+      "id": "admin-pii-approval",
+      "type": "APPROVAL",
+      "description": "Any Admin. Opens only when the table carries the PII tag; otherwise skipped and audited.",
+      "actors": { "roleUrns": ["urn:li:dataHubRole:Admin"] },
+      "quorum": { "anyOf": true },
+      "condition": { "operator": "AND", "filters": [{ "field": "tags", "values": ["urn:li:tag:PII"], "condition": "CONTAIN" }] }
+    }
+  ]
+}

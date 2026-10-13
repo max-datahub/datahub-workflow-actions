@@ -1,0 +1,37 @@
+# Merge into the self-managed DataHub values (acryl-datahub chart, acryl-datahub-actions subchart).
+# Prereqs in the DataHub namespace:
+#   kubectl create configmap workflow-actions-recipes --from-file=workflow-actions.yaml=recipes/kafka.yaml
+#   kubectl create configmap workflow-actions-code --from-file=datahub_workflow_actions/      # air-gapped path
+#   kubectl create secret generic workflow-actions --from-literal=token=<service-account PAT>  # optional
+#   a PVC `workflow-actions-failed` (1Gi, ReadWriteOnce) so failed events survive pod restarts
+acryl-datahub-actions:
+  enabled: true
+  # Stock image. For the derived-image path set image.repository/tag to your build and drop the
+  # workflow-actions-code mount + PYTHONPATH below.
+  extraEnvs:
+    # Without this the image's bundled executor/slack/teams/doc-propagation recipes start, and the
+    # executor competes with the executor-coordinator for ingestion runs.
+    - name: DATAHUB_ACTIONS_SYSTEM_CONFIGS_PATH
+      value: /etc/datahub/actions/system/disabled
+    - name: PYTHONPATH
+      value: /etc/datahub/actions/plugins
+    - name: DATAHUB_TOKEN
+      valueFrom: { secretKeyRef: { name: workflow-actions, key: token, optional: true } }
+  extraVolumes:
+    - name: recipes
+      configMap: { name: workflow-actions-recipes }
+    - name: code
+      configMap: { name: workflow-actions-code }
+    - name: failed-events
+      persistentVolumeClaim: { claimName: workflow-actions-failed }
+  extraVolumeMounts:
+    - name: recipes
+      mountPath: /etc/datahub/actions/conf
+      readOnly: true
+    - name: code
+      mountPath: /etc/datahub/actions/plugins/datahub_workflow_actions
+      readOnly: true
+    - name: failed-events
+      mountPath: /var/datahub/actions/failed
+  # serviceAccount:
+  #   name: workflow-actions   # IRSA role for MSK IAM, if the recipe's SASL block is enabled

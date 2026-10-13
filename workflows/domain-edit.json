@@ -1,0 +1,50 @@
+{
+  "urn": "urn:li:actionWorkflow:domain-edit",
+  "name": "Domain Change Approval",
+  "description": "Propose changes to this domain's description, owners or parent. Every current owner must approve. On approval a subscribed DataHub Action applies the changes; fields left empty are untouched.",
+  "category": "CUSTOM",
+  "customCategory": "GOVERNANCE",
+  "trigger": {
+    "type": "FORM_SUBMITTED",
+    "form": {
+      "entityTypes": ["DOMAIN"],
+      "entrypoints": [{ "type": "ENTITY_PROFILE", "label": "Propose Changes" }],
+      "excludedDefaultFields": ["EXPIRATION_DATE"],
+      "fields": [
+        {
+          "id": "description",
+          "name": "New description",
+          "valueType": "RICH_TEXT",
+          "cardinality": "SINGLE",
+          "required": false
+        },
+        {
+          "id": "owners",
+          "name": "New owners",
+          "description": "Replaces the current business owners. Leave empty to keep them.",
+          "valueType": "URN",
+          "allowedEntityTypes": ["CORP_USER", "CORP_GROUP"],
+          "cardinality": "MULTIPLE",
+          "required": false
+        },
+        {
+          "id": "parent_domain",
+          "name": "New parent domain",
+          "valueType": "URN",
+          "allowedEntityTypes": ["DOMAIN"],
+          "cardinality": "SINGLE",
+          "required": false
+        }
+      ]
+    }
+  },
+  "steps": [
+    {
+      "id": "owner-approval",
+      "type": "APPROVAL",
+      "description": "Every current owner of this domain must approve.",
+      "actors": { "dynamicSource": { "resolvers": [{ "resolver": "OWNERS_OF", "source": "launching" }] } },
+      "quorum": { "allOf": true }
+    }
+  ]
+}

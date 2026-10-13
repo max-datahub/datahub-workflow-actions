@@ -1,0 +1,41 @@
+# DataHub Cloud: paste the `source:` block into a new Ingestion Source (type: custom / YAML).
+# Step 5 (Advanced) -> Extra Pip Libraries:
+#   ["/datahub-integrations-service", "https://github.com/<org>/datahub-workflow-actions/archive/refs/tags/v0.1.0.zip"]
+# The events source polls PlatformEvent_v1 through the Events API; there is no recipe-level filter,
+# the router's own parse() drops non-workflow events. Offsets persist on clean shutdown only, so a
+# crash replays recent events; every primitive is idempotent.
+source:
+  type: datahub_integrations.sources.remote_actions.remote_action_source.RemoteActionSource
+  config:
+    stage: live
+    action_urn: "urn:li:dataHubAction:workflow-actions"
+    action_spec:
+      type: datahub_workflow_actions.router:WorkflowRouter
+      config:
+        workflows:
+          dataset-certification:
+            - phase: COMPLETED
+              do:
+                - add_tags:
+                    entity: event:entityUrn
+                    tags: ["urn:li:tag:CERTIFIED"]
+                - set_structured_properties:
+                    entity: event:entityUrn
+                    values:
+                      urn:li:structuredProperty:certification_expiry: field:certification_expiration
+          domain-create:
+            - phase: COMPLETED
+              do:
+                - create_domain:
+                    name: field:name
+                    description: field:description
+                    parent: field:parent_domain
+                    owners: field:owners
+          domain-edit:
+            - phase: COMPLETED
+              do:
+                - update_domain:
+                    entity: event:entityUrn
+                    description: field:description
+                    owners: field:owners
+                    parent: field:parent_domain

@@ -1,0 +1,90 @@
+# DataHub Actions pipeline for the stock acryldata/datahub-actions image (self-managed).
+# Every ${VAR} is injected by the acryl-datahub chart. The pipeline name is the Kafka consumer group.
+name: workflow-actions
+datahub:
+  server: "http://${DATAHUB_GMS_HOST:-datahub-gms}:${DATAHUB_GMS_PORT:-8080}"
+  # Service-account PAT. Leave DATAHUB_TOKEN unset to fall back to the system client credentials
+  # the chart injects (DATAHUB_SYSTEM_CLIENT_ID / DATAHUB_SYSTEM_CLIENT_SECRET).
+  token: "${DATAHUB_TOKEN:-}"
+source:
+  type: kafka
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+      consumer_config:
+        # create_domain and update_domain make several GMS calls per event; the framework default
+        # (10 s) can get the consumer evicted from its group mid-event.
+        max.poll.interval.ms: 300000
+        # AWS MSK IAM: uncomment and run the pod under an IRSA role allowed to read the topic.
+        # security.protocol: SASL_SSL
+        # sasl.mechanism: OAUTHBEARER
+        # oauth_cb: "datahub_actions.utils.kafka_msk_iam:oauth_cb"
+    # Only the platform-event topic. Without this the source also subscribes to both
+    # MetadataChangeLog topics, which is the firehose.
+    topic_routes:
+      pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1}
+filters:
+  - type: event_type
+    config:
+      filter:
+        EntityChangeEvent_v1:
+          event:
+            - entityType: actionRequest
+              category: LIFECYCLE
+              parameters:
+                actionRequestType: WORKFLOW_FORM_REQUEST
+action:
+  type: datahub_workflow_actions.router:WorkflowRouter
+  config:
+    workflows:
+      dataset-certification:
+        - phase: CREATED
+          do:
+            - add_tags:
+                entity: event:entityUrn
+                tags: ["urn:li:tag:certification-pending"]
+        - phase: COMPLETED
+          do:
+            - add_tags:
+                entity: event:entityUrn
+                tags: ["urn:li:tag:CERTIFIED"]
+            - set_structured_properties:
+                entity: event:entityUrn
+                values:
+                  urn:li:structuredProperty:certification_expiry: field:certification_expiration
+        - phase: COMPLETED
+          when: ANY
+          do:
+            - remove_tags:
+                entity: event:entityUrn
+                tags: ["urn:li:tag:certification-pending"]
+        - phase: CANCELLED
+          do:
+            - remove_tags:
+                entity: event:entityUrn
+                tags: ["urn:li:tag:certification-pending"]
+      domain-create:
+        - phase: COMPLETED
+          do:
+            - create_domain:
+                name: field:name
+                description: field:description
+                parent: field:parent_domain
+                owners: field:owners
+                ownership_type: urn:li:ownershipType:__system__business_owner
+      domain-edit:
+        - phase: COMPLETED
+          do:
+            - update_domain:
+                entity: event:entityUrn
+                description: field:description
+                owners: field:owners
+                parent: field:parent_domain
+                ownership_type: urn:li:ownershipType:__system__business_owner
+options:
+  retry_count: 3
+  # THROW would stop the pipeline thread while the pod stays Running. CONTINUE writes the event to
+  # failed_events_dir after the retries; replay it with `python -m datahub_workflow_actions.replay`.
+  failure_mode: CONTINUE
+  failed_events_dir: /var/datahub/actions/failed

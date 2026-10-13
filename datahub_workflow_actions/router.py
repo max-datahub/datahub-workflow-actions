@@ -33,7 +33,7 @@ READ_PRIVILEGE = "View Entity Page"  # every primitive reads before it writes
 
 
 class Rule(ConfigModel):
-    on: Phase
+    phase: Phase
     when: Optional[When] = None
     step_id: Optional[str] = None
     do: List[Dict[str, Optional[Dict[str, Any]]]]
@@ -46,10 +46,10 @@ class Rule(ConfigModel):
 
     @model_validator(mode="after")
     def _shape(self) -> "Rule":
-        if self.when is not None and self.on != "COMPLETED":
-            raise ValueError("`when` is only valid with `on: COMPLETED`")
-        if self.step_id is not None and self.on != "STEP":
-            raise ValueError("`step_id` is only valid with `on: STEP`")
+        if self.when is not None and self.phase != "COMPLETED":
+            raise ValueError("`when` is only valid with `phase: COMPLETED`")
+        if self.step_id is not None and self.phase != "STEP":
+            raise ValueError("`step_id` is only valid with `phase: STEP`")
         if not self.do:
             raise ValueError("`do` must list at least one primitive")
         for i, step in enumerate(self.do):
@@ -74,7 +74,7 @@ class CompiledStep:
 
 @dataclass
 class CompiledRule:
-    on: str
+    phase: str
     when: str
     step_id: Optional[str]
     steps: List[CompiledStep]
@@ -97,7 +97,7 @@ def compile_config(config: RouterConfig) -> Dict[str, List[CompiledRule]]:
                 except (ValueError, ValidationError) as e:
                     raise ValueError(f"{where}: {e}") from e
                 steps.append(CompiledStep(name, cls, params))
-            compiled[workflow_id].append(CompiledRule(rule.on, rule.effective_when(), rule.step_id, steps))
+            compiled[workflow_id].append(CompiledRule(rule.phase, rule.effective_when(), rule.step_id, steps))
     return dict(compiled)
 
 
@@ -112,11 +112,11 @@ def manifest(compiled: Dict[str, List[CompiledRule]]) -> str:
 
 
 def _matches(rule: CompiledRule, event: WorkflowEvent) -> bool:
-    if rule.on != event.phase:
+    if rule.phase != event.phase:
         return False
-    if rule.on == "COMPLETED" and rule.when != "ANY" and rule.when != event.result:
+    if rule.phase == "COMPLETED" and rule.when != "ANY" and rule.when != event.result:
         return False
-    if rule.on == "STEP" and rule.step_id is not None and rule.step_id != event.step_id:
+    if rule.phase == "STEP" and rule.step_id is not None and rule.step_id != event.step_id:
         return False
     return True
 

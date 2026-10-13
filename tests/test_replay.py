@@ -8,7 +8,7 @@ from datahub_workflow_actions.router import WorkflowRouter
 from tests.conftest import DATASET, FakeGraph
 
 FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "completed_accepted.json"
-CONFIG = {"workflows": {"dataset-certification": [{"on": "COMPLETED", "do": [{"add_tags": {"entity": "event:entityUrn", "tags": ["urn:li:tag:CERTIFIED"]}}]}]}}
+CONFIG = {"workflows": {"dataset-certification": [{"phase": "COMPLETED", "do": [{"add_tags": {"entity": "event:entityUrn", "tags": ["urn:li:tag:CERTIFIED"]}}]}]}}
 
 
 def test_replay_feeds_each_line_and_counts_failures(capsys) -> None:

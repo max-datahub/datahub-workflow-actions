@@ -1,0 +1,70 @@
+{
+  "urn": "urn:li:actionWorkflow:domain-create",
+  "name": "Domain Creation Approval",
+  "description": "Propose a new domain. Every owner of the parent domain and every proposed owner must approve; a single rejection ends the request. On approval a subscribed DataHub Action creates the domain.",
+  "category": "CUSTOM",
+  "customCategory": "GOVERNANCE",
+  "trigger": {
+    "type": "FORM_SUBMITTED",
+    "form": {
+      "entityTypes": ["DOMAIN"],
+      "entrypoints": [
+        { "type": "ENTITY_PROFILE", "label": "Propose Sub-domain" },
+        { "type": "HOME", "label": "Propose Domain" }
+      ],
+      "excludedDefaultFields": ["EXPIRATION_DATE"],
+      "fields": [
+        {
+          "id": "name",
+          "name": "Domain name",
+          "valueType": "STRING",
+          "cardinality": "SINGLE",
+          "required": true,
+          "validation": { "pattern": "^.{3,100}$", "errorMessage": "Domain name must be between 3 and 100 characters." }
+        },
+        {
+          "id": "description",
+          "name": "Description",
+          "valueType": "RICH_TEXT",
+          "cardinality": "SINGLE",
+          "required": true
+        },
+        {
+          "id": "parent_domain",
+          "name": "Parent domain",
+          "description": "The domain this one sits under. Leave empty for a top-level domain.",
+          "valueType": "URN",
+          "allowedEntityTypes": ["DOMAIN"],
+          "cardinality": "SINGLE",
+          "required": false
+        },
+        {
+          "id": "owners",
+          "name": "Owners",
+          "description": "Users or groups who will own the domain.",
+          "valueType": "URN",
+          "allowedEntityTypes": ["CORP_USER", "CORP_GROUP"],
+          "cardinality": "MULTIPLE",
+          "required": true
+        }
+      ]
+    }
+  },
+  "steps": [
+    {
+      "id": "owner-approval",
+      "type": "APPROVAL",
+      "description": "Every owner of the launching domain, every owner of the selected parent, and every proposed owner must approve.",
+      "actors": {
+        "dynamicSource": {
+          "resolvers": [
+            { "resolver": "OWNERS_OF", "source": "launching" },
+            { "resolver": "OWNERS_OF", "source": "field:parent_domain" },
+            { "resolver": "IDENTITY", "source": "field:owners" }
+          ]
+        }
+      },
+      "quorum": { "allOf": true }
+    }
+  ]
+}
