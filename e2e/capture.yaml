@@ -1,0 +1,21 @@
+name: workflow-actions-capture
+source:
+  type: kafka
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+    topic_routes:
+      pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1}
+filters:
+  - type: event_type
+    config:
+      filter:
+        EntityChangeEvent_v1:
+          event:
+            - entityType: actionRequest
+              category: LIFECYCLE
+              parameters:
+                actionRequestType: WORKFLOW_FORM_REQUEST
+action:
+  type: hello_world   # prints each envelope as JSON to stdout; redirect to e2e/out/capture.log
