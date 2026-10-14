@@ -1,4 +1,5 @@
 import json
+import pathlib
 from typing import Any, Dict, List, Optional, Tuple
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -8,6 +9,12 @@ DATASET = "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.e
 PARENT = "urn:li:domain:finance"
 REQUESTER = "urn:li:corpuser:requester"
 REQUEST = "urn:li:actionRequest:req-1"
+FIXTURES = pathlib.Path(__file__).parent / "fixtures"
+
+
+def fixture_envelope(name: str) -> EventEnvelope:
+    """An event captured from a live instance (tests/fixtures/)."""
+    return EventEnvelope.from_json((FIXTURES / name).read_text())
 
 
 def envelope(
@@ -69,6 +76,8 @@ class FakeGraph:
         self.emitted: List[MetadataChangeProposalWrapper] = []
         self.responses: Dict[str, Any] = {}
         self.raise_on: Dict[str, Exception] = {}
+        self.raw: Dict[str, Dict[str, Any]] = {}  # urn -> {aspectName: value}, served by get_entity_raw
+        self.reads: List[str] = []
 
     def execute_graphql(self, query: str, variables: Optional[Dict[str, Any]] = None, **_: Any) -> Dict[str, Any]:
         operation = query.split("{", 1)[1].split("(", 1)[0].strip()
@@ -79,6 +88,11 @@ class FakeGraph:
 
     def get_aspect(self, entity_urn: str, aspect_type: Any, version: int = 0) -> Any:
         return self.aspects.get((entity_urn, aspect_type.ASPECT_NAME))
+
+    def get_entity_raw(self, entity_urn: str, aspects: Optional[List[str]] = None) -> Dict[str, Any]:
+        self.reads.append(entity_urn)
+        found = self.raw.get(entity_urn, {})
+        return {"urn": entity_urn, "aspects": {n: {"value": v} for n, v in found.items() if not aspects or n in aspects}}
 
     def emit(self, item: MetadataChangeProposalWrapper) -> None:
         self.emitted.append(item)

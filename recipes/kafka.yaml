@@ -87,4 +87,4 @@ options:
   # THROW would stop the pipeline thread while the pod stays Running. CONTINUE writes the event to
   # failed_events_dir after the retries; replay it with `python -m datahub_workflow_actions.replay`.
   failure_mode: CONTINUE
-  failed_events_dir: /var/datahub/actions/failed
+  failed_events_dir: ${FAILED_EVENTS_DIR:-/var/datahub/actions/failed}

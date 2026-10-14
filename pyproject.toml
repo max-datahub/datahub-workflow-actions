@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "datahub-workflow-actions"
-version = "0.1.0"
+version = "0.2.0"
 description = "DataHub Action that applies catalog side effects when Action Workflow requests complete"
 readme = "README.md"
 license = { file = "LICENSE" }

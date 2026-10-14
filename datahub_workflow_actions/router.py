@@ -21,7 +21,7 @@ from datahub_actions.pipeline.pipeline_context import PipelineContext
 from pydantic import ValidationError, field_validator, model_validator
 
 from datahub_workflow_actions.binding import resolve, validate_refs
-from datahub_workflow_actions.events import WorkflowEvent, parse, short_workflow_id
+from datahub_workflow_actions.events import WorkflowEvent, complete_from_request, parse, short_workflow_id
 from datahub_workflow_actions.primitive import PermanentError, Primitive, logger_for
 from datahub_workflow_actions.registry import resolve_primitive
 
@@ -105,6 +105,8 @@ def manifest(compiled: Dict[str, List[CompiledRule]]) -> str:
     by_target: Dict[str, set] = defaultdict(set)
     for rules in compiled.values():
         for rule in rules:
+            if rule.phase == "CANCELLED":  # the bare CANCELLED event is completed by reading the request entity
+                by_target["action request"].add(READ_PRIVILEGE)
             for step in rule.steps:
                 privileges = step.cls.model_validate(step.params).privileges()
                 by_target[step.cls.target].update(privileges + [READ_PRIVILEGE])
@@ -143,6 +145,8 @@ class WorkflowRouter(Action):
 
     def act(self, envelope: EventEnvelope) -> None:
         event = parse(envelope)
+        if event is not None and not event.workflow_id:  # bare CANCELLED event, see events.complete_from_request
+            event = complete_from_request(self.graph, event)
         if event is None:
             return
         for rule in self.rules.get(event.workflow_id, []):

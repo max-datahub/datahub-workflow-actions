@@ -17,7 +17,7 @@ action:
                 values: { urn:li:structuredProperty:certification_expiry: field:certification_expiration }
 ```
 
-Full recipes: [`recipes/kafka.yaml`](recipes/kafka.yaml) (self-managed) and [`recipes/cloud.yaml`](recipes/cloud.yaml) (DataHub Cloud). Reference workflows: [`workflows/`](workflows/).
+Full recipes: [`recipes/kafka.yaml`](recipes/kafka.yaml) (self-managed) and [`recipes/cloud.yaml`](recipes/cloud.yaml) (DataHub Cloud). Reference workflows: [`workflows/`](workflows/). Step-by-step deployment: [docs/setup-guide.md](docs/setup-guide.md).
 
 A workflow key maps to a list of rules so one workflow can react to several phases. `step_id` narrows a `STEP` rule to one approval step. The key is called `phase`, not `on`, because YAML parses a bare `on` as a boolean.
 
@@ -82,7 +82,7 @@ Then mount `recipes/kafka.yaml` at `/etc/datahub/actions/conf/` and set `DATAHUB
 Create an Ingestion Source with the `source:` block from `recipes/cloud.yaml`, and add the package to Extra Pip Libraries (Step 5, Advanced):
 
 ```json
-["/datahub-integrations-service", "https://github.com/<org>/datahub-workflow-actions/archive/refs/tags/v0.1.0.zip"]
+["/datahub-integrations-service", "https://github.com/max-datahub/datahub-workflow-actions/archive/refs/tags/v0.2.0.zip"]
 ```
 
 ## Delivery semantics
@@ -105,6 +105,29 @@ cd workflows && DATAHUB_URL=https://<instance> DATAHUB_TOKEN=<token> ./push_work
 ```
 
 Each file pins its URN, so re-running updates the existing workflow. Replace the placeholder URNs (`urn:li:tag:CERTIFIED`, `urn:li:tag:PII`, `urn:li:structuredProperty:certification_expiry`) with your own before pushing.
+
+## End-to-end check against a local DataHub
+
+`e2e/run_local.sh` runs the stock actions image next to a local docker quickstart (or the fork's
+quickstartDebug) with this checkout mounted the way the Helm values mount the ConfigMaps, then runs
+`e2e/seed_and_run.py`: it seeds the fixtures, pushes the three reference workflows, files a request
+per workflow, approves every step and asserts the side effects, plus a rejected and a cancelled
+certification request. GMS must have Action Workflows v2 on (`ACTON_WORKFLOWS_ENABLED=true` and
+`ACTION_WORKFLOWS_V2_ENABLED=true`; the harness checks and says so otherwise).
+
+```bash
+DATAHUB_GMS_URL=http://localhost:8080 e2e/run_local.sh    # last line: E2E PASS
+E2E_CAPTURE=1 e2e/run_local.sh                            # also writes every workflow event to e2e/out/events/
+```
+
+Every knob is an environment variable; the header of `e2e/run_local.sh` lists them (GMS URL and
+container, Docker network, Kafka bootstrap, image tag, tokens, timeouts, harness flags). Without
+`DATAHUB_TOKEN` the harness mints a one-hour PAT for `urn:li:corpuser:datahub` through the quickstart
+system client. The pipeline log and any failed events land in `e2e/out/`. The harness alone
+(`python e2e/seed_and_run.py --reject --cancel`) works against any instance that already runs
+`recipes/kafka.yaml`. The generic recipe for running the stock image against any local quickstart,
+including how to capture raw events and read consumer offsets, is in
+[docs/testing-the-actions-image-locally.md](docs/testing-the-actions-image-locally.md).
 
 ## Develop
 

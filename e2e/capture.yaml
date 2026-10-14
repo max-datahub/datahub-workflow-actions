@@ -1,10 +1,14 @@
-name: workflow-actions-capture
+# A fresh consumer group per run (the runner sets CAPTURE_RUN) that starts at the latest offset, so
+# the capture holds this run's events only, not whatever accumulated while no capture pipeline ran.
+name: workflow-actions-capture${CAPTURE_RUN:-}
 source:
   type: kafka
   config:
     connection:
       bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
       schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+      consumer_config:
+        auto.offset.reset: latest
     topic_routes:
       pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1}
 filters:
