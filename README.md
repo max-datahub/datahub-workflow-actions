@@ -17,7 +17,7 @@ action:
                 values: { urn:li:structuredProperty:certification_expiry: field:certification_expiration }
 ```
 
-Full recipes: [`recipes/kafka.yaml`](recipes/kafka.yaml) (self-managed) and [`recipes/cloud.yaml`](recipes/cloud.yaml) (DataHub Cloud). Reference workflows: [`workflows/`](workflows/).
+Full recipes: [`recipes/kafka.yaml`](recipes/kafka.yaml) (self-managed) and [`recipes/cloud.yaml`](recipes/cloud.yaml) (DataHub Cloud). Reference workflows: [`workflows/`](workflows/). Step-by-step deployment: [docs/setup-guide.md](docs/setup-guide.md).
 
 A workflow key maps to a list of rules so one workflow can react to several phases. `step_id` narrows a `STEP` rule to one approval step. The key is called `phase`, not `on`, because YAML parses a bare `on` as a boolean.
 
@@ -82,7 +82,7 @@ Then mount `recipes/kafka.yaml` at `/etc/datahub/actions/conf/` and set `DATAHUB
 Create an Ingestion Source with the `source:` block from `recipes/cloud.yaml`, and add the package to Extra Pip Libraries (Step 5, Advanced):
 
 ```json
-["/datahub-integrations-service", "https://github.com/<org>/datahub-workflow-actions/archive/refs/tags/v0.1.0.zip"]
+["/datahub-integrations-service", "https://github.com/max-datahub/datahub-workflow-actions/archive/refs/tags/v0.2.0.zip"]
 ```
 
 ## Delivery semantics
