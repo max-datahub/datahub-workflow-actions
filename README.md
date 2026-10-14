@@ -106,6 +106,29 @@ cd workflows && DATAHUB_URL=https://<instance> DATAHUB_TOKEN=<token> ./push_work
 
 Each file pins its URN, so re-running updates the existing workflow. Replace the placeholder URNs (`urn:li:tag:CERTIFIED`, `urn:li:tag:PII`, `urn:li:structuredProperty:certification_expiry`) with your own before pushing.
 
+## End-to-end check against a local DataHub
+
+`e2e/run_local.sh` runs the stock actions image next to a local docker quickstart (or the fork's
+quickstartDebug) with this checkout mounted the way the Helm values mount the ConfigMaps, then runs
+`e2e/seed_and_run.py`: it seeds the fixtures, pushes the three reference workflows, files a request
+per workflow, approves every step and asserts the side effects, plus a rejected and a cancelled
+certification request. GMS must have Action Workflows v2 on (`ACTON_WORKFLOWS_ENABLED=true` and
+`ACTION_WORKFLOWS_V2_ENABLED=true`; the harness checks and says so otherwise).
+
+```bash
+DATAHUB_GMS_URL=http://localhost:8080 e2e/run_local.sh    # last line: E2E PASS
+E2E_CAPTURE=1 e2e/run_local.sh                            # also writes every workflow event to e2e/out/events/
+```
+
+Every knob is an environment variable; the header of `e2e/run_local.sh` lists them (GMS URL and
+container, Docker network, Kafka bootstrap, image tag, tokens, timeouts, harness flags). Without
+`DATAHUB_TOKEN` the harness mints a one-hour PAT for `urn:li:corpuser:datahub` through the quickstart
+system client. The pipeline log and any failed events land in `e2e/out/`. The harness alone
+(`python e2e/seed_and_run.py --reject --cancel`) works against any instance that already runs
+`recipes/kafka.yaml`. The generic recipe for running the stock image against any local quickstart,
+including how to capture raw events and read consumer offsets, is in
+[docs/testing-the-actions-image-locally.md](docs/testing-the-actions-image-locally.md).
+
 ## Develop
 
 ```bash

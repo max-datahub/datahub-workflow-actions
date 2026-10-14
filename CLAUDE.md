@@ -74,9 +74,9 @@ All workflow events are `EntityChangeEvent_v1` with `entityType=actionRequest`,
 | CREATED | `CREATE` | no `operation` param |
 | STEP | `MODIFY` | `stepId`, `stepResult` |
 | COMPLETED | `COMPLETED` | `operation=COMPLETE`, `result=ACCEPTED\|REJECTED` |
-| CANCELLED | `MODIFY` | `operation=CANCELLED`, `cancelledBy`, `note?` |
+| CANCELLED | `MODIFY` | `operation=CANCELLED`, `cancelledBy`, `note?` and **nothing else** (fork builds through v2.3.x): the router reads workflow, entity, actor and fields from the request's `actionRequestInfo` aspect (`events.complete_from_request`, one entity read) |
 
-Always present: `workflowUrn`/`workflowId`, `entityUrn` (absent for HOME-launched workflows),
+Present on every phase but CANCELLED: `workflowUrn`/`workflowId`, `entityUrn` (absent for HOME-launched workflows),
 `actorUrn`, `fields` as a **JSON string** `{fieldId: [value, …]}` where every value is a string
 (DATE fields are epoch millis, often as a Java double like `"1.793367303267E12"`; URN fields are
 URN strings). Not in the event: approver notes and per-step decisions (they live in the request's
@@ -109,7 +109,8 @@ URN strings). Not in the event: approver notes and per-step decisions (they live
 asdf set python 3.11.13 && python -m venv .venv && source .venv/bin/activate
 pip install -e '.[dev]'
 pytest                                                     # unit tests, no network
-python e2e/seed_and_run.py                                 # manual, needs DATAHUB_GMS_URL + DATAHUB_TOKEN
+e2e/run_local.sh                                           # e2e against a local docker quickstart (DATAHUB_GMS_URL, E2E_CAPTURE=1 ...)
+python e2e/seed_and_run.py --reject --cancel               # harness alone, against an instance already running recipes/kafka.yaml
 python -m datahub_workflow_actions.replay <log> -c <recipe>
 (cd workflows && DATAHUB_URL=… DATAHUB_TOKEN=… ./push_workflows.sh)
 docker build --platform linux/amd64 --build-arg DATAHUB_ACTIONS_TAG=<tag>-slim -t <img> .
