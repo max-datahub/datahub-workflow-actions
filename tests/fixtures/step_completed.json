@@ -2,11 +2,11 @@
   "event_type": "EntityChangeEvent_v1",
   "event": {
     "entityType": "actionRequest",
-    "entityUrn": "urn:li:actionRequest:7617a29f-f63d-4b65-8dc8-e372a3f3f9e0",
+    "entityUrn": "urn:li:actionRequest:c1f8d4ca-8e6d-4545-83e3-748079893182",
     "category": "LIFECYCLE",
     "operation": "MODIFY",
     "auditStamp": {
-      "time": 1790775323659,
+      "time": 1791983154857,
       "actor": "urn:li:corpuser:datahub"
     },
     "version": 0,
@@ -17,19 +17,19 @@
       "actionRequestType": "WORKFLOW_FORM_REQUEST",
       "entityType": "dataset",
       "entityName": "events",
+      "stepId": "owner-approval",
       "workflowUrn": "urn:li:actionWorkflow:dataset-certification",
-      "fields": "{\"justification\":[\"Ready for certification: validated, documented and monitored by the owning team.\"],\"certification_expiration\":[\"1.793367303267E12\"],\"co_signer_steward\":[\"urn:li:corpuser:datahub\"]}",
+      "stepResult": "ACCEPTED",
+      "fields": "{\"justification\":[\"Ready for certification: validated, documented and monitored by the owning team.\"],\"certification_expiration\":[\"1.794575153774E12\"],\"co_signer_steward\":[\"urn:li:corpuser:datahub\"]}",
       "workflowId": "dataset-certification",
-      "entityPlatformName": "Databricks",
-      "stepId": "data-owner-approval",
-      "stepResult": "ACCEPTED"
+      "entityPlatformName": "Databricks"
     }
   },
   "meta": {
     "kafka": {
       "topic": "PlatformEvent_v1",
-      "offset": 39,
-      "partition": 0
+      "offset": 222,
+      "partition": 1
     }
   }
 }

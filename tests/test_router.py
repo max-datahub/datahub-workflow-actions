@@ -6,7 +6,7 @@ from datahub.configuration.common import OperationalError
 
 import tests.sample_primitive as sample
 from datahub_workflow_actions.router import WorkflowRouter, manifest
-from tests.conftest import DATASET, REQUEST, FakeGraph, envelope
+from tests.conftest import DATASET, REQUEST, REQUESTER, FakeGraph, envelope, fixture_envelope
 
 ECHO = "tests.sample_primitive:Echo"
 
@@ -68,6 +68,31 @@ def test_when_defaults_to_accepted_and_any_covers_both_results() -> None:
     r.act(envelope(result="REJECTED"))
     r.act(envelope(ece_operation="MODIFY", operation="CANCELLED", result=None))
     assert [v for v, _, _ in sample.RUNS] == ["accepted-only", "any", "any", "rejected-only", "cancelled"]
+
+
+def test_bare_cancel_event_is_completed_from_the_request() -> None:
+    graph, env = FakeGraph(), fixture_envelope("cancelled.json")
+    graph.raw[env.event.entityUrn] = {"actionRequestInfo": {"resource": DATASET, "createdBy": REQUESTER, "params": {"workflowFormRequest": {
+        "workflow": "urn:li:actionWorkflow:dataset-certification", "fields": [{"id": "justification", "values": [{"string": "ok"}]}]}}}}
+    r = router({"workflows": {"dataset-certification": [{"phase": "CANCELLED", "do": [{ECHO: {"value": "event:entityUrn", "values": "field:justification"}}]}]}}, graph)
+    r.act(env)
+    assert sample.RUNS == [(DATASET, ["ok"], env.event.entityUrn)]
+    assert graph.reads == [env.event.entityUrn]
+
+
+def test_bare_cancel_event_of_a_non_workflow_request_is_ignored() -> None:
+    graph, env = FakeGraph(), fixture_envelope("cancelled.json")
+    graph.raw[env.event.entityUrn] = {"actionRequestInfo": {"type": "TAG_ASSOCIATION"}}
+    router({"workflows": {"dataset-certification": [{"phase": "CANCELLED", "do": [ECHO]}]}}, graph).act(env)
+    assert sample.RUNS == []
+
+
+def test_cancel_event_with_workflow_params_needs_no_read() -> None:
+    graph = FakeGraph()
+    router({"workflows": {"dataset-certification": [{"phase": "CANCELLED", "do": [{ECHO: {"value": "x"}}]}]}}, graph).act(
+        envelope(ece_operation="MODIFY", operation="CANCELLED", result=None)
+    )
+    assert [v for v, _, _ in sample.RUNS] == ["x"] and graph.reads == []
 
 
 def test_created_and_step_rules() -> None:
@@ -143,6 +168,13 @@ def test_real_primitive_through_router() -> None:
     ]}]}}, graph)
     r.act(envelope())
     assert graph.calls == [("batchAddTags", {"input": {"tagUrns": ["urn:li:tag:CERTIFIED"], "resources": [{"resourceUrn": DATASET}]}})]
+
+
+def test_manifest_declares_the_request_read_for_cancelled_rules() -> None:
+    r = router({"workflows": {"w": [{"phase": "CANCELLED", "do": [{"remove_tags": {"entity": "event:entityUrn", "tags": ["urn:li:tag:pending"]}}]}]}})
+    assert "View Entity Page on action request" in manifest(r.rules)
+    r = router({"workflows": {"w": [{"phase": "COMPLETED", "do": [{"remove_tags": {"entity": "event:entityUrn", "tags": ["urn:li:tag:pending"]}}]}]}})
+    assert "action request" not in manifest(r.rules)
 
 
 def test_manifest_groups_privileges_by_target() -> None:
